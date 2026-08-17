@@ -1,0 +1,33 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- 环境与密钥（严禁入库） ---
+.env
+.env.local
+
+# --- 运行时数据 ---
+data/
+!data/.gitkeep
+
+# --- 虚拟环境 ---
+.venv/
+venv/
+
+# --- IDE / 系统 ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# --- 日志 ---
+*.log
+logs/

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EduMentor · 智能教育助手</title>
+  <style>
+    body { font-family: "Microsoft YaHei", sans-serif; margin: 0; background: #f4f6fb; color: #1f2937; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px; text-align: center; }
+    h1 { font-size: 28px; }
+    .tag { display: inline-block; margin-top: 8px; padding: 4px 14px; border-radius: 999px;
+           background: #eef2ff; color: #4f46e5; font-size: 13px; }
+    .status { margin-top: 28px; padding: 18px; background: #fff; border-radius: 12px;
+              box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: 14px; }
+    .status .row { display: flex; justify-content: space-between; max-width: 360px; margin: 6px auto; }
+    .ok { color: #16a34a; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>EduMentor</h1>
+    <span class="tag">基于多 Agent 协作架构的智能教育助手</span>
+    <p style="color:#6b7280; font-size:14px;">
+      项目骨架已就绪（阶段一）。智能答疑、作业批改、错题分析、练习生成、学习推送能力将随开发阶段逐步开放。
+    </p>
+    <div class="status">
+      <div class="row"><span>服务状态</span><span id="app-status" class="ok">…</span></div>
+      <div class="row"><span>数据库</span><span id="db-status" class="ok">…</span></div>
+      <div class="row"><span>LLM 配置</span><span id="llm-status" class="ok">…</span></div>
+    </div>
+    <p style="color:#9ca3af; font-size:12px;">
+      Swagger 文档：<a href="/docs">/docs</a> · 健康检查：<a href="/api/v1/health">/api/v1/health</a>
+    </p>
+  </div>
+  <script>
+    fetch('/api/v1/health').then(r => r.json()).then(data => {
+      document.getElementById('app-status').textContent = data.status;
+      document.getElementById('db-status').textContent = data.db;
+      document.getElementById('llm-status').textContent = data.llm;
+      if (data.status !== 'ok') {
+        document.getElementById('app-status').className = '';
+        document.getElementById('app-status').style.color = '#dc2626';
+      }
+    }).catch(() => {
+      document.getElementById('app-status').textContent = 'offline';
+    });
+  </script>
+</body>
+</html>

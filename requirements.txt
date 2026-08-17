@@ -1,0 +1,36 @@
+# EduMentor 依赖清单（基准版本，以 pip 实际安装为准）
+# 安装：pip install -r requirements.txt
+# 开发期默认 FAISS + 内存缓存 + 云端模型；生产期切 Milvus + Redis + 本地模型（仅改 .env）
+
+# --- Web ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# --- LangChain / LangGraph ---
+langchain>=0.3
+langchain-community>=0.3
+langchain-openai>=0.2
+langchain-core>=0.3
+langgraph>=0.2
+
+# --- 数据库（MySQL） / 向量 / 缓存 ---
+sqlalchemy>=2.0
+pymysql>=1.1
+faiss-cpu>=1.8
+cachetools>=5.3
+redis>=5.0          # 生产缓存后端
+pymilvus>=2.4       # 生产向量库后端（开发期可不装，但建议一并装好）
+
+# --- 多模态（本地 CPU，惰性加载） ---
+paddleocr>=2.7,<3.0
+faster-whisper>=1.0
+
+# --- 工具 ---
+apscheduler>=3.10
+httpx>=0.27
+
+# --- 其他 ---
+python-dotenv>=1.0
