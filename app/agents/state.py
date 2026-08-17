@@ -30,3 +30,13 @@ class AppState(TypedDict, total=False):
     # --- 答疑子图内部字段 ---
     assistant_message_id: int     # 助手消息占位 id（meta 事件用）
     context: list[dict]           # 检索到的知识片段（retrieve 节点写入）
+
+    # --- 作业批改子图内部字段 ---
+    submission_id: int            # 已创建的作业提交 id（API 层先落库 pending）
+    answer_key: str | None        # 参考答案文本（docs/04 §5.1）
+    question_type_hint: str | None  # 题型提示（choice+fill+solve）
+    ocr_text: str                 # OCR 识别出的作业全文
+    parsed_questions: list[dict]  # 切题结果 [{question_no, question_text, student_answer}]
+    answer_map: dict              # {题号: 参考答案}
+    question_types: list[str]     # 逐题题型（objective/subjective）
+    grading_items: list[dict]     # 逐题批改明细（assemble 前累积）

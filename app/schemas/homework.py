@@ -14,6 +14,7 @@ class GradingItem(BaseModel):
     score: float | None = None
     comment: str = ""
     is_ai_scored: bool = False
+    suggestion: str = ""  # 主观题改进建议（US-GR-3）
 
 
 class GradingSummary(BaseModel):
@@ -31,6 +32,7 @@ class HomeworkGradeResult(BaseModel):
     status: str = "done"
     summary: GradingSummary | None = None
     items: list[GradingItem] = Field(default_factory=list)
+    error: str | None = None  # status=failed 时的错误说明（OCR 失败等）
 
 
 class SubmissionOut(BaseModel):
@@ -40,3 +42,4 @@ class SubmissionOut(BaseModel):
     status: str
     summary: GradingSummary | None = None
     items: list[GradingItem] = Field(default_factory=list)
+    error: str | None = None

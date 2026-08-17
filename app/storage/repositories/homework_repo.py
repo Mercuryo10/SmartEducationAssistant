@@ -22,6 +22,14 @@ class HomeworkRepository(BaseRepository):
         """按 id 取提交记录。"""
         return self.get_by_id(submission_id)
 
+    def get_submission_for_user(self, submission_id: int, user_id: int) -> HomeworkSubmission | None:
+        """按 id + 用户取提交记录（校验归属，防止越权查询）。"""
+        stmt = select(HomeworkSubmission).where(
+            HomeworkSubmission.id == submission_id,
+            HomeworkSubmission.user_id == user_id,
+        )
+        return self.session.scalar(stmt)
+
     def update_submission_status(self, submission_id: int, status: str, ocr_text: str | None = None) -> HomeworkSubmission:
         """更新提交状态（pending/grading/done/failed），可选回填 OCR 文本。"""
         submission = self.get_by_id(submission_id)

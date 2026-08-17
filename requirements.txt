@@ -26,6 +26,8 @@ pymilvus>=2.4       # 生产向量库后端（开发期可不装，但建议一�
 
 # --- 多模态（本地 CPU，惰性加载） ---
 paddleocr>=2.7,<3.0
+rapidocr_onnxruntime>=1.3   # PaddleOCR 的 ONNX 轻量回退（Windows 装不上 paddlepaddle 时自动启用）
+pillow>=10.0                # 生成 scripts/demo_data 样例图
 faster-whisper>=1.0
 
 # --- 工具 ---

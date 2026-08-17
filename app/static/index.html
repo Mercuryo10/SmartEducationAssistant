@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EduMentor · 智能答疑</title>
+  <title>EduMentor · 智能教育助手</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: "Microsoft YaHei", sans-serif; margin: 0; background: #f4f6fb; color: #1f2937; height: 100vh; display: flex; flex-direction: column; }
-    header { background: #4f46e5; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header { background: #4f46e5; color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    header .brand { min-width: 0; }
     header h1 { font-size: 18px; margin: 0; }
     header .sub { font-size: 12px; opacity: .85; }
-    #health { font-size: 12px; background: rgba(255,255,255,.18); padding: 4px 10px; border-radius: 999px; }
+    #health { font-size: 12px; background: rgba(255,255,255,.18); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+    .tabs { display: flex; gap: 6px; }
+    .tab { border: none; background: rgba(255,255,255,.15); color: #fff; padding: 7px 16px; border-radius: 999px; font-size: 13px; cursor: pointer; }
+    .tab.active { background: #fff; color: #4f46e5; font-weight: 600; }
+
+    /* 智能答疑区 */
+    #chat-area, #grading-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    #grading-area { display: none; }
     #chat { flex: 1; overflow-y: auto; padding: 20px 24px; max-width: 860px; width: 100%; margin: 0 auto; }
     .msg { margin-bottom: 14px; display: flex; }
     .msg .bubble { max-width: 78%; padding: 10px 14px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; line-height: 1.6; font-size: 14px; }
@@ -29,28 +37,74 @@
     #send:disabled { opacity: .5; cursor: not-allowed; }
     #fileBtn { border: 1px solid #d1d5db; background: #f9fafb; border-radius: 10px; padding: 10px 12px; cursor: pointer; font-size: 13px; }
     #fileName { font-size: 12px; color: #6b7280; align-self: center; }
+
+    /* 作业批改区 */
+    #grading-scroll { flex: 1; overflow-y: auto; padding: 20px 24px; max-width: 860px; width: 100%; margin: 0 auto; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .card label { display: block; font-size: 13px; color: #6b7280; margin: 10px 0 4px; }
+    .card input[type=file] { width: 100%; }
+    .card textarea, .card input[type=text] { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; }
+    .card textarea { min-height: 70px; resize: vertical; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .link { font-size: 12px; color: #4f46e5; cursor: pointer; background: none; border: none; padding: 0; text-decoration: underline; }
+    #gradeSend { background: #4f46e5; color: #fff; border: none; border-radius: 10px; padding: 10px 22px; font-size: 14px; cursor: pointer; margin-top: 14px; }
+    #gradeSend:disabled { opacity: .5; cursor: not-allowed; }
+    .grade-summary { font-size: 14px; padding: 10px 14px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px; margin-bottom: 14px; }
+    .grade-items { display: flex; flex-direction: column; gap: 10px; }
+    .grade-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
+    .gi-head { font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tag { font-size: 11px; border-radius: 999px; padding: 2px 8px; }
+    .tag.obj { background: #dbeafe; color: #1d4ed8; }
+    .tag.subj { background: #fce7f3; color: #be185d; }
+    .gi-row { font-size: 13px; color: #374151; margin: 4px 0; line-height: 1.6; word-break: break-word; }
+    .gi-row label { display: inline; font-size: 12px; color: #9ca3af; margin-right: 6px; }
     .error { color: #dc2626; }
     .hint { font-size: 12px; color: #9ca3af; text-align: center; padding: 8px; }
   </style>
 </head>
 <body>
   <header>
-    <div>
-      <h1>EduMentor · 智能答疑</h1>
-      <div class="sub">基于知识库 RAG · 回答可溯源</div>
+    <div class="brand">
+      <h1>EduMentor · 智能教育助手</h1>
+      <div class="sub">答疑 · 批改 · 错题 · 出题 · 推送</div>
     </div>
+    <nav class="tabs">
+      <button class="tab active" data-panel="chat">智能答疑</button>
+      <button class="tab" data-panel="grading">作业批改</button>
+    </nav>
     <span id="health">连接中…</span>
   </header>
 
-  <div id="chat">
-    <div class="hint">试试提问：「Transformer 的自注意力机制是什么？」「RAG 为什么能缓解幻觉？」「LangGraph 的 Supervisor 是什么？」<br>也可上传图片/语音（OCR/语音引擎未装时会在回答流中给出明确提示）</div>
+  <!-- 智能答疑 -->
+  <div id="chat-area">
+    <div id="chat">
+      <div class="hint">试试提问：「Transformer 的自注意力机制是什么？」「RAG 为什么能缓解幻觉？」「LangGraph 的 Supervisor 是什么？」<br>也可上传图片/语音（OCR/语音引擎未装时会在回答流中给出明确提示）</div>
+    </div>
+    <div id="composer">
+      <input type="file" id="fileBtn" accept="image/jpeg,image/png,image/webp,audio/wav,audio/mp3">
+      <textarea id="input" placeholder="输入你的问题，回车发送"></textarea>
+      <button id="send">发送</button>
+      <span id="fileName"></span>
+    </div>
   </div>
 
-  <div id="composer">
-    <input type="file" id="fileBtn" accept="image/jpeg,image/png,image/webp,audio/wav,audio/mp3">
-    <textarea id="input" placeholder="输入你的问题，回车发送"></textarea>
-    <button id="send">发送</button>
-    <span id="fileName"></span>
+  <!-- 作业批改 -->
+  <div id="grading-area">
+    <div id="grading-scroll">
+      <div class="card">
+        <label>作业图片（可多张，字段名 file）</label>
+        <input type="file" id="gradeFile" accept="image/jpeg,image/png,image/webp" multiple>
+        <label>参考答案（每行一条：题号+答案；客观题判分必需）</label>
+        <textarea id="gradeKey" placeholder="1: B&#10;2: 对&#10;3: 信息&#10;4: ..."></textarea>
+        <div class="row">
+          <button class="link" id="fillDemoKey">填入示例答案（对应 homework_demo.jpg）</button>
+        </div>
+        <label>题型提示（选填，如 choice+fill+solve）</label>
+        <input type="text" id="gradeHint" placeholder="choice+fill+solve">
+        <button id="gradeSend">开始批改</button>
+      </div>
+      <div id="gradeResult"></div>
+    </div>
   </div>
 
   <script>
@@ -62,6 +116,14 @@
     const sendBtn = document.getElementById('send');
     const fileBtn = document.getElementById('fileBtn');
     const fileNameEl = document.getElementById('fileName');
+
+    // Tab 切换：智能答疑 / 作业批改
+    document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+      const panel = t.dataset.panel;
+      document.getElementById('chat-area').style.display = panel === 'chat' ? 'flex' : 'none';
+      document.getElementById('grading-area').style.display = panel === 'grading' ? 'flex' : 'none';
+    });
 
     // 健康状态
     fetch('/api/v1/health').then(r => r.json()).then(d => {
@@ -171,6 +233,69 @@
     sendBtn.onclick = send;
     inputEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
     fileBtn.onchange = () => { fileNameEl.textContent = fileBtn.files[0] ? fileBtn.files[0].name : ''; };
+
+    // ---------------- 作业批改 ----------------
+    const gradeFileEl = document.getElementById('gradeFile');
+    const gradeKeyEl = document.getElementById('gradeKey');
+    const gradeHintEl = document.getElementById('gradeHint');
+    const gradeBtn = document.getElementById('gradeSend');
+    const gradeResultEl = document.getElementById('gradeResult');
+    const DEMO_ANSWER_KEY = '1: B\n2: 对\n3: 信息\n4: RAG 通过检索相关证据片段约束生成，降低了对参数化记忆的依赖，从而减少了模型编造事实的可能。';
+
+    document.getElementById('fillDemoKey').onclick = () => {
+      gradeKeyEl.value = DEMO_ANSWER_KEY;
+      gradeResultEl.innerHTML = '<div class="hint">已填入示例答案，选择 homework_demo.jpg 后点「开始批改」</div>';
+    };
+
+    async function sendGrade() {
+      const files = gradeFileEl.files;
+      if (!files.length) { gradeResultEl.innerHTML = '<div class="error">请先选择作业图片</div>'; return; }
+      gradeBtn.disabled = true;
+      gradeResultEl.innerHTML = '<div class="hint">批改中：OCR 识别 → 客观题判分 → 主观题 AI 评分 …</div>';
+      const fd = new FormData();
+      for (const f of files) fd.append('file', f);
+      if (gradeKeyEl.value.trim()) fd.append('answer_key', gradeKeyEl.value);
+      if (gradeHintEl.value.trim()) fd.append('question_type_hint', gradeHintEl.value);
+      try {
+        const res = await fetch('/api/v1/homework/grade', { method: 'POST', body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          gradeResultEl.innerHTML = '<div class="error">请求失败 HTTP ' + res.status + '：' + (err.detail || err.message || '') + '</div>';
+          return;
+        }
+        renderGradeResult(await res.json());
+      } catch (err) {
+        gradeResultEl.innerHTML = '<div class="error">网络异常：' + err.message + '</div>';
+      } finally { gradeBtn.disabled = false; }
+    }
+
+    function renderGradeResult(d) {
+      if (d.status === 'failed') {
+        gradeResultEl.innerHTML = '<div class="error">⚠️ 批改失败：' + escapeHtml(d.error || '未知错误') + '</div>';
+        return;
+      }
+      const s = d.summary || {};
+      let html = '<div class="grade-summary">提交 #' + d.submission_id + ' · 共 <b>' + s.total + '</b> 题 · 对 <b>' + s.correct + '</b> 题 · 客观题得分率 <b>' + s.objective_score + '</b></div>';
+      html += '<div class="grade-items">' + (d.items || []).map(it => {
+        const tag = it.question_type === 'subjective'
+          ? '<span class="tag subj">主观 · AI 评分</span>'
+          : '<span class="tag obj">客观</span>';
+        const verdict = it.question_type === 'subjective'
+          ? (it.is_ai_scored ? 'AI 得分 ' + (it.score != null ? it.score : '-') : 'AI 未评分')
+          : (it.is_correct ? '✅ 判对' : '❌ 判错');
+        return '<div class="grade-item">'
+          + '<div class="gi-head">' + tag + ' <b>Q' + it.question_no + '</b> ' + verdict + '</div>'
+          + '<div class="gi-row"><label>题干</label>' + escapeHtml(it.question_text) + '</div>'
+          + '<div class="gi-row"><label>学生答案</label>' + escapeHtml(it.student_answer || '（空）') + '</div>'
+          + '<div class="gi-row"><label>参考答案</label>' + escapeHtml(it.reference_answer || '（无）') + '</div>'
+          + (it.comment ? '<div class="gi-row"><label>评语</label>' + escapeHtml(it.comment) + '</div>' : '')
+          + (it.suggestion ? '<div class="gi-row"><label>建议</label>' + escapeHtml(it.suggestion) + '</div>' : '')
+          + '</div>';
+      }).join('') + '</div>';
+      gradeResultEl.innerHTML = html;
+    }
+
+    gradeBtn.onclick = sendGrade;
   </script>
 </body>
 </html>
