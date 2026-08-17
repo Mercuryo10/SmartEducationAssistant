@@ -12,6 +12,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.auth import router as auth_router
+from app.api.chat import router as chat_router
 from app.api.health import router as health_router
 from app.core.config import settings
 from app.core.exceptions import EduMentorError
@@ -57,6 +59,8 @@ async def unhandled_error_handler(_: Request, exc: Exception) -> JSONResponse:
 
 # ---------- 路由 ----------
 app.include_router(health_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
 
 
 # ---------- 前端静态页 ----------

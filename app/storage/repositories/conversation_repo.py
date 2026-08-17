@@ -1,6 +1,7 @@
 """会话与消息仓储（docs/03 §7，覆盖 conversations + messages 两张表）。"""
 from sqlalchemy import select
 
+from app.core.exceptions import ResourceNotFoundError
 from app.storage.models import Conversation, Message
 from app.storage.repositories.base import BaseRepository
 
@@ -49,3 +50,14 @@ class ConversationRepository(BaseRepository):
             .order_by(Message.created_at.asc())
         )
         return list(self.session.scalars(stmt))
+
+    def get_message(self, message_id: int) -> Message | None:
+        """按 id 取单条消息。"""
+        return self.session.get(Message, message_id)
+
+    def update_message_content(self, message_id: int, content: str, source_refs: list | None) -> Message:
+        """更新消息内容与溯源引用（流式回答落库时用）。"""
+        msg = self.get_message(message_id)
+        if msg is None:
+            raise ResourceNotFoundError(f"消息不存在 id={message_id}")
+        return self.update(msg, content=content, source_refs=source_refs)

@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     cache_backend: str = "memory"
     cache_url: str = "redis://127.0.0.1:6379/0"
 
+    # --- 鉴权 JWT（docs/04 §3；生产必须改 JWT_SECRET） ---
+    jwt_secret: str = "dev-secret-change-me"
+    jwt_expire_seconds: int = 86400  # token 有效期 1 天
+
     # --- 检索/切分常量（docs/00 §8） ---
     vector_dim: int = 1024               # text-embedding-v4 / bge-m3 维度
     retrieve_top_k: int = 5              # 检索 top_k
