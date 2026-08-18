@@ -40,3 +40,10 @@ class AppState(TypedDict, total=False):
     answer_map: dict              # {题号: 参考答案}
     question_types: list[str]     # 逐题题型（objective/subjective）
     grading_items: list[dict]     # 逐题批改明细（assemble 前累积）
+
+    # --- 错题分析子图内部字段 ---
+    mistake_action: str           # ingest（录入+关联） | explain（讲解）
+    mistake_payload: dict         # 录入入参 {question_text, wrong_answer, correct_answer, knowledge_point_name}
+    mistake_id: int               # 已录入/待讲解的错题 id
+    mistake_knowledge_point_id: int | None  # 关联的知识点 id
+    mistake_knowledge_point_name: str | None  # 关联的知识点名
