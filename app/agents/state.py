@@ -52,3 +52,10 @@ class AppState(TypedDict, total=False):
     exercise_payload: dict        # 生成入参 {knowledge_point_id, difficulty, question_type, count}
     exercise_templates: list[dict]  # resolve_template 查出的模板（含 params_schema 事实库）
     exercise_items: list[dict]      # fill_params 生成、validate 校验通过的题目草稿
+
+    # --- 学习推送子图内部字段 ---
+    push_action: str              # create（直接时间） | plan（遗忘曲线计划）
+    push_payload: dict            # create: {content, scheduled_at, channel} / plan: {knowledge_point_id, start_date}
+    push_plan_items: list[dict]   # parse_plan 生成的计划项 [{scheduled_at, content}]
+    push_channel: str             # 分发渠道（默认 mock）
+    push_result: dict             # create: {id, status, scheduled_at} / plan: {items: [...]}

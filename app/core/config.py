@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     chunk_size: int = 500                # 文档切分
     chunk_overlap: int = 50
 
+    # --- 学习推送调度（docs/05 §5.5 / 阶段六） ---
+    push_scan_interval: int = 30         # 调度器扫描到期任务间隔（秒）
+    push_review_intervals: str = "1,2,4,7"  # 遗忘曲线复习间隔（天，逗号分隔）
+    push_review_hour: int = 9            # 复习任务每日触发小时（UTC 09:00）
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

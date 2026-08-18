@@ -18,9 +18,11 @@ from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.homework import router as homework_router
 from app.api.mistakes import knowledge_router, router as mistakes_router
+from app.api.push import router as push_router
 from app.core.config import settings
 from app.core.exceptions import EduMentorError
 from app.core.logging import get_logger, setup_logging
+from app.services import scheduler
 
 logger = get_logger("main")
 
@@ -30,10 +32,12 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """应用生命周期：启动时初始化日志。"""
+    """应用生命周期：初始化日志，启动学习推送调度器（docs/09 阶段六）。"""
     setup_logging()
     logger.info("%s v%s 启动（env=%s）", settings.app_name, settings.app_version, settings.app_env)
+    scheduler.start_scheduler()
     yield
+    scheduler.stop_scheduler()
     logger.info("%s 已关闭", settings.app_name)
 
 
@@ -68,6 +72,7 @@ app.include_router(homework_router, prefix="/api/v1")
 app.include_router(mistakes_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
 app.include_router(exercises_router, prefix="/api/v1")
+app.include_router(push_router, prefix="/api/v1")
 
 
 # ---------- 前端静态页 ----------

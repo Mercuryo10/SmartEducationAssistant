@@ -1,7 +1,7 @@
 """学习推送仓储（docs/03 §7，覆盖 push_tasks + push_logs）。"""
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.storage.models import PushLog, PushTask
 from app.storage.repositories.base import BaseRepository
@@ -54,3 +54,24 @@ class PushRepository(BaseRepository):
     def list_logs(self, page: int = 1, page_size: int = 20) -> tuple[int, list[PushLog]]:
         """分页列出推送日志（新→旧）。"""
         return self.list_page(page=page, page_size=page_size, order_by="-created_at")
+
+    def list_logs_by_user(
+        self, user_id: int, page: int = 1, page_size: int = 20
+    ) -> tuple[int, list[PushLog]]:
+        """分页列出某用户的推送日志（关联 push_tasks 归属，新→旧，docs/01 数据隔离）。"""
+        count_stmt = (
+            select(func.count())
+            .select_from(PushLog)
+            .join(PushTask, PushLog.task_id == PushTask.id)
+            .where(PushTask.user_id == user_id)
+        )
+        total = self.session.execute(count_stmt).scalar_one()
+        stmt = (
+            select(PushLog)
+            .join(PushTask, PushLog.task_id == PushTask.id)
+            .where(PushTask.user_id == user_id)
+            .order_by(PushLog.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return total, list(self.session.scalars(stmt))
