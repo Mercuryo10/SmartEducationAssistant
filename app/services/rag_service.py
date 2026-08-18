@@ -108,6 +108,38 @@ class RAGService:
         logger.info("写入文档 doc_id=%s chunks=%d embed_cost=%.2fs", doc_id, len(chunks), time.perf_counter() - t0)
         return len(chunks)
 
+    def add_chunks(self, doc_id: int, title: str, source: str, chunks: list[str]) -> int:
+        """写入已预切分好的分块（供标题感知分块等策略；docs/09 阶段 7.1）。
+
+        Args:
+            doc_id: 对应 knowledge_docs.id。
+            title: 文档标题。
+            source: 文档来源（如 demo_data/xxx.docx）。
+            chunks: 预切分好的分块文本（首行为所属标题路径）。
+
+        Returns:
+            写入的分块数量。
+        """
+        chunks = [c.strip() for c in chunks if c and c.strip()]
+        if not chunks:
+            return 0
+        t0 = time.perf_counter()
+        vectors = self.embedding.embed_documents(chunks)
+        items = [
+            {
+                "doc_id": doc_id,
+                "title": title,
+                "source": source,
+                "chunk_index": i,
+                "text": chunk,
+                "vector": list(vectors[i]),
+            }
+            for i, chunk in enumerate(chunks)
+        ]
+        self.store.add(items)
+        logger.info("写入文档分块 doc_id=%s chunks=%d embed_cost=%.2fs", doc_id, len(chunks), time.perf_counter() - t0)
+        return len(chunks)
+
     def delete_document(self, doc_id: int) -> None:
         """删除某文档在向量库中的全部分块。"""
         self.store.delete_by_doc(doc_id)
