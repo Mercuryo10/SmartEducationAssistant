@@ -47,3 +47,8 @@ class AppState(TypedDict, total=False):
     mistake_id: int               # 已录入/待讲解的错题 id
     mistake_knowledge_point_id: int | None  # 关联的知识点 id
     mistake_knowledge_point_name: str | None  # 关联的知识点名
+
+    # --- 练习生成子图内部字段 ---
+    exercise_payload: dict        # 生成入参 {knowledge_point_id, difficulty, question_type, count}
+    exercise_templates: list[dict]  # resolve_template 查出的模板（含 params_schema 事实库）
+    exercise_items: list[dict]      # fill_params 生成、validate 校验通过的题目草稿

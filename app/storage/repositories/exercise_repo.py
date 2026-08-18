@@ -1,4 +1,6 @@
 """练习题仓储（docs/03 §7，覆盖 exercises + generated_exercises）。"""
+from sqlalchemy import select
+
 from app.storage.models import Exercise, GeneratedExercise
 from app.storage.repositories.base import BaseRepository
 
@@ -27,9 +29,18 @@ class ExerciseRepository(BaseRepository):
             params_schema=params_schema,
         )
 
-    def list_by_knowledge_point(self, knowledge_point_id: int, question_type: str | None = None) -> list[Exercise]:
-        """按知识点取模板，可选按题型过滤。"""
-        return self.list_all(knowledge_point_id=knowledge_point_id, question_type=question_type)
+    def list_by_knowledge_point(
+        self,
+        knowledge_point_id: int,
+        question_type: str | None = None,
+        difficulty: str | None = None,
+    ) -> list[Exercise]:
+        """按知识点取模板，可选按题型 / 难度过滤（docs/05 §5.4 resolve_template）。"""
+        return self.list_all(
+            knowledge_point_id=knowledge_point_id,
+            question_type=question_type,
+            difficulty=difficulty,
+        )
 
     def create_generated(
         self,
@@ -56,5 +67,10 @@ class ExerciseRepository(BaseRepository):
         return gen
 
     def list_generated_by_user(self, user_id: int) -> list[GeneratedExercise]:
-        """列出某用户的历史生成题目。"""
-        return self.list_all(user_id=user_id, order_by="-created_at")
+        """列出某用户的历史生成题目（generated_exercises，按时间倒序）。"""
+        stmt = (
+            select(GeneratedExercise)
+            .where(GeneratedExercise.user_id == user_id)
+            .order_by(GeneratedExercise.created_at.desc())
+        )
+        return list(self.session.scalars(stmt))

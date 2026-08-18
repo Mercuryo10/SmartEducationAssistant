@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
+from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.homework import router as homework_router
 from app.api.mistakes import knowledge_router, router as mistakes_router
@@ -66,6 +67,7 @@ app.include_router(chat_router, prefix="/api/v1")
 app.include_router(homework_router, prefix="/api/v1")
 app.include_router(mistakes_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
+app.include_router(exercises_router, prefix="/api/v1")
 
 
 # ---------- 前端静态页 ----------

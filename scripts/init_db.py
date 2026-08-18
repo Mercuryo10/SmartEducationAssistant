@@ -13,8 +13,9 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from app.core.logging import get_logger, setup_logging  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
+from app.services import exercise_data  # noqa: E402
 from app.storage.db import Base, SessionLocal, engine  # noqa: E402
-from app.storage.repositories import KnowledgeRepository, UserRepository  # noqa: E402
+from app.storage.repositories import ExerciseRepository, KnowledgeRepository, UserRepository  # noqa: E402
 
 logger = get_logger("init_db")
 
@@ -75,6 +76,34 @@ def seed_demo_user(session: Session) -> None:
     logger.info("演示账号：%s / %s", DEMO_USER["username"], DEMO_USER["password"])
 
 
+def seed_exercise_templates(session: Session) -> None:
+    """幂等写入练习模板（docs/09 阶段五「模板数据」，≥3 题型 × ≥5 知识点 × 3 难度）。
+
+    数据源为 app/services/exercise_data.py（标准陈述库 + 题干/答案模板）；
+    写入 exercises 表，生成时从 params_schema.facts 读取事实库。
+    """
+    ex_repo = ExerciseRepository(session)
+    kp_repo = KnowledgeRepository(session)
+    for kp_name, facts in exercise_data.FACT_LIBRARIES.items():
+        kp = kp_repo.get_knowledge_point_by_name(kp_name)
+        if kp is None:
+            logger.warning("知识点不存在，跳过练习模板：%s", kp_name)
+            continue
+        for qtype in exercise_data.QUESTION_TYPES:
+            for difficulty in exercise_data.DIFFICULTIES:
+                if ex_repo.list_by_knowledge_point(kp.id, qtype, difficulty):
+                    continue  # 幂等：已存在跳过
+                ex_repo.create_exercise(
+                    knowledge_point_id=kp.id,
+                    question_type=qtype,
+                    difficulty=difficulty,
+                    template=exercise_data.STEM_TEMPLATES[qtype][difficulty],
+                    answer_template=exercise_data.ANSWER_TEMPLATES[qtype],
+                    params_schema={"facts": facts},
+                )
+                logger.info("练习模板：%s %s/%s", kp_name, qtype, difficulty)
+
+
 def main() -> None:
     """执行初始化。"""
     setup_logging()
@@ -84,6 +113,7 @@ def main() -> None:
     with SessionLocal() as session:
         seed_knowledge_points(session)
         seed_demo_user(session)
+        seed_exercise_templates(session)
         session.commit()
     logger.info("数据库初始化完成")
 
