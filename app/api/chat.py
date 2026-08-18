@@ -4,6 +4,10 @@
 - GET /conversations：会话列表。
 - GET /conversations/{id}/messages：会话消息历史。
 
+阶段七起 /chat 走 Supervisor 主图（docs/09 §7）：supervisor 意图分类 → 路由到
+5 个子 Agent 之一 → 聚合。文字提问通常路由到 qa 子图并流式回答；路由到其他
+子图且缺专用入参时，聚合节点给出引导文案。
+
 流式实现：图在独立线程运行（asyncio.to_thread，不阻塞事件循环），
 逐 token 经线程安全队列推送；本层异步生成器消费队列产出 SSE。
 """
@@ -19,8 +23,8 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.agents.qa_agent import build_qa_subgraph
 from app.agents.state import AppState
+from app.agents.supervisor import build_graph
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.exceptions import ValidationError
@@ -102,7 +106,7 @@ async def _event_stream(state: AppState, graph: Any) -> AsyncGenerator[str, None
                     MetaEvent(
                         conversation_id=item["conversation_id"],
                         message_id=item["message_id"],
-                        task="qa",
+                        task=state.get("task", "qa"),
                     ),
                 )
             elif item["type"] == "token":
@@ -154,7 +158,7 @@ async def chat(
         session=session,
         token_queue=queue.Queue(),
     )
-    graph = build_qa_subgraph()
+    graph = build_graph()
     logger.info("收到答疑请求 user_id=%s conv_id=%s msg=%.30s", user.id, conversation_id, message)
     return StreamingResponse(
         _event_stream(state, graph),

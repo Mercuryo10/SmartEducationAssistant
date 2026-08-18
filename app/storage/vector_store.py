@@ -2,7 +2,7 @@
 
 - VectorStore 接口：add/search/delete_by_doc/rebuild/count。
 - FaissVectorStore：开发期（VECTOR_BACKEND=faiss），IndexFlatIP + L2 归一化 ≈ 余弦。
-- MilvusVectorStore：生产期（VECTOR_BACKEND=milvus），阶段七实现完整功能。
+- MilvusVectorStore：生产期（VECTOR_BACKEND=milvus），pymilvus 惰性连接，集合自动创建。
 - get_vector_store()：按配置返回实现，业务层只依赖接口。
 """
 import pickle
@@ -11,6 +11,9 @@ from typing import Any, Protocol
 
 from app.core.config import settings
 from app.core.exceptions import ToolExecutionError
+from app.core.logging import get_logger
+
+logger = get_logger("vector_store")
 
 
 class VectorStore(Protocol):
@@ -147,15 +150,128 @@ class FaissVectorStore:
 
 
 class MilvusVectorStore:
-    """Milvus 向量库（生产期后端）。
+    """Milvus 向量库（生产期后端，docs/03 §5.3）。
 
-    完整功能在阶段七实现（docs/09 §7）；当前占位，防止后端误选导致静默错误。
+    - pymilvus 惰性导入：开发期不装 pymilvus 也能正常 import 本模块。
+    - 实例化即连接（MILVUS_HOST/PORT）并确保集合 knowledge_chunks 存在
+      （COSINE 度量，IVF_FLAT nlist=1024，字段见 docs/03 §5.3）。
+    - 业务层只经 get_vector_store() 工厂使用本实现，禁止其他层 import pymilvus。
     """
 
-    def __init__(self) -> None:
-        raise ToolExecutionError(
-            "Milvus 后端将在阶段七实现；开发期请使用 VECTOR_BACKEND=faiss"
+    COLLECTION = "knowledge_chunks"
+
+    def __init__(self, host: str | None = None, port: int | None = None) -> None:
+        """连接 Milvus 并确保集合存在。
+
+        Args:
+            host: Milvus 主机，缺省 settings.milvus_host。
+            port: Milvus 端口，缺省 settings.milvus_port。
+
+        Raises:
+            ToolExecutionError: 连接失败或集合创建失败（生产配置问题，不静默）。
+        """
+        from pymilvus import DataType, MilvusClient
+        from pymilvus.milvus_client.index import IndexParams
+
+        self._milvus = MilvusClient
+        self._data_type = DataType
+        self._index_params_cls = IndexParams
+        uri = f"http://{host or settings.milvus_host}:{port or settings.milvus_port}"
+        try:
+            self._client = MilvusClient(uri=uri)
+            self._ensure_collection()
+        except Exception as exc:
+            raise ToolExecutionError(
+                f"Milvus 连接失败 uri={uri}；请确认 VECTOR_BACKEND=milvus 时中间件已部署",
+                detail=str(exc),
+            ) from exc
+
+    # ---------- 内部工具 ----------
+
+    def _ensure_collection(self) -> None:
+        """集合不存在时创建（幂等；字段与 docs/03 §5.3 一致）。"""
+        if self.COLLECTION in self._client.list_collections():
+            return
+        schema = self._milvus.create_schema(auto_id=True, enable_dynamic_field=False)
+        schema.add_field("id", self._data_type.INT64, is_primary=True, auto_id=True)
+        schema.add_field("doc_id", self._data_type.INT64)
+        schema.add_field("chunk_index", self._data_type.INT64)
+        schema.add_field("title", self._data_type.VARCHAR, max_length=255)
+        schema.add_field("source", self._data_type.VARCHAR, max_length=512)
+        schema.add_field("text", self._data_type.VARCHAR, max_length=65535)
+        schema.add_field("vector", self._data_type.FLOAT_VECTOR, dim=settings.vector_dim)
+        index_params = self._index_params_cls()
+        index_params.add_index(
+            field_name="vector", index_type="IVF_FLAT", metric_type="COSINE", params={"nlist": 1024}
         )
+        self._client.create_collection(
+            collection_name=self.COLLECTION,
+            schema=schema,
+            index_params=index_params,
+        )
+
+    # ---------- 接口实现 ----------
+
+    def add(self, chunks: list[dict]) -> None:
+        """写入分块（id 由 Milvus 自增，其余字段按集合 schema）。"""
+        if not chunks:
+            return
+        rows = [
+            {
+                "doc_id": c["doc_id"],
+                "chunk_index": c.get("chunk_index", 0),
+                "title": c.get("title", ""),
+                "source": c.get("source", ""),
+                "text": c.get("text", ""),
+                "vector": list(c["vector"]),
+            }
+            for c in chunks
+        ]
+        self._client.insert(self.COLLECTION, rows)
+
+    def search(self, vector: list[float], top_k: int = 5) -> list[dict]:
+        """按向量检索，返回 [{text, source, doc_id, title, chunk_index, score}]。"""
+        if top_k <= 0:
+            return []
+        raw = self._client.search(
+            self.COLLECTION,
+            data=[list(vector)],
+            limit=top_k,
+            output_fields=["doc_id", "chunk_index", "title", "source", "text"],
+        )
+        results: list[dict] = []
+        for hits in raw:
+            for hit in hits:
+                ent = hit.get("entity") or hit
+                results.append(
+                    {
+                        "text": ent.get("text", ""),
+                        "source": ent.get("source", ""),
+                        "doc_id": ent.get("doc_id", 0),
+                        "title": ent.get("title", ""),
+                        "chunk_index": ent.get("chunk_index", 0),
+                        "score": float(hit.get("distance", 0.0)),
+                    }
+                )
+        return results
+
+    def delete_by_doc(self, doc_id: int) -> None:
+        """删除某文档的全部分块（按 doc_id 过滤）。"""
+        self._client.delete(self.COLLECTION, filter=f"doc_id == {int(doc_id)}")
+
+    def rebuild(self) -> None:
+        """全量重建：删除并重建空集合（知识库重建走 scripts/build_kb.py）。"""
+        self._client.drop_collection(self.COLLECTION)
+        self._ensure_collection()
+        logger.warning("Milvus 集合已重建为空，请重新执行 python scripts/build_kb.py")
+
+    def count(self) -> int:
+        """当前索引分块总数。"""
+        stats = self._client.get_collection_stats(self.COLLECTION)
+        return int(stats.get("row_count", 0))
+
+    def __repr__(self) -> str:
+        return f"MilvusVectorStore(collection={self.COLLECTION})"
 
 
 def get_vector_store() -> VectorStore:
