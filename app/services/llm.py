@@ -100,6 +100,26 @@ class OpenAICompatEmbeddings:
         return result
 
 
+def get_vision_llm(temperature: float = 0.1) -> ChatOpenAI:
+    """千问视觉模型客户端（qwen-vl-plus，阶段 7.2：md 图片生成文本描述）。
+
+    Args:
+        temperature: 生成温度，默认 0.1（描述追求客观、贴合原文）。
+
+    Returns:
+        ChatOpenAI 实例（DashScope OpenAI 兼容端点，支持多模态 image_url）。
+    """
+    if not settings.qwen_api_key:
+        logger.warning("QWEN_API_KEY 未配置，调用 qwen-vl 将失败")
+    return ChatOpenAI(
+        model=settings.qwen_vl_model,
+        base_url=settings.qwen_base_url,
+        api_key=settings.qwen_api_key,
+        temperature=temperature,
+        timeout=120,
+    )
+
+
 def get_embedding_client() -> OpenAICompatEmbeddings:
     """按 EMBEDDING_PROVIDER 返回 Embedding 客户端。
 

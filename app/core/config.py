@@ -3,7 +3,12 @@
 取值以 `docs/00-项目总览.md` §7 环境变量基线为准。
 业务代码一律 `from app.core.config import settings`，禁止硬编码。
 """
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 项目根目录（app/core/config.py → 上溯两级），.env 一律从这里读，避免受运行目录影响
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -29,6 +34,7 @@ class Settings(BaseSettings):
     qwen_api_key: str = ""
     qwen_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_embedding_model: str = "text-embedding-v4"
+    qwen_vl_model: str = "qwen-vl-plus"   # 千问视觉模型（阶段 7.2：md 图片描述）
     local_embedding_base_url: str = "http://localhost:11434/v1"
     local_embedding_model: str = "bge-m3"
 
@@ -60,7 +66,13 @@ class Settings(BaseSettings):
     push_review_intervals: str = "1,2,4,7"  # 遗忘曲线复习间隔（天，逗号分隔）
     push_review_hour: int = 9            # 复习任务每日触发小时（UTC 09:00）
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # --- MinerU PDF→MD（阶段 7.2，官方云端 API v4，见 docs/09 阶段 7.2） ---
+    mineru_api_url: str = ""             # MinerU API 基地址（官方云 https://mineru.net/api/v4）；为空表示未配置
+    mineru_token: str = ""               # 官方云端 API Token（Bearer）；为空表示未配置，调用时抛结构化错误
+    mineru_poll_interval: float = 3.0    # 任务状态轮询间隔（秒）
+    mineru_timeout: float = 600.0        # 单任务最大等待（秒）
+
+    model_config = SettingsConfigDict(env_file=_PROJECT_ROOT / ".env", env_file_encoding="utf-8", extra="ignore")
 
 
 settings = Settings()
